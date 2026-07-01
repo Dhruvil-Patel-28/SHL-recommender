@@ -6,6 +6,7 @@ __pycache__/
 
 # Internal dev artifacts
 walkthrough.md
+walkthrough1.md
 
 # Virtual Environment
 venv/
