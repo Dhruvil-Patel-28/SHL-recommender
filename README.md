@@ -358,3 +358,9 @@ docker run -p 8000:8000 -e GROQ_API_KEY=gsk_... shl-recommender
 | `pydantic` | Request/response validation and serialization |
 | `rapidfuzz` | Fast fuzzy string matching for catalog lookups |
 | `python-dotenv` | Load `.env` file for API keys |
+
+---
+
+## Author
+
+**Dhruvil Patel**
