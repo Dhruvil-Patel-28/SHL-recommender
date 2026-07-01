@@ -40,7 +40,7 @@ A conversational AI agent exposed as a FastAPI service that helps hiring manager
                                      │  │  1. Extract facets (rule-based)  │    │
                                      │  │  2. Filter catalog (Python)      │    │
                                      │  │  3. Build system prompt          │    │
-                                     │  │  4. Call Groq LLM (single call)  │    │
+                                     │  │  4. Call Gemini LLM (single call)│    │
                                      │  │  5. Parse + validate response    │    │
                                      │  └──────────┬───────────────────────┘    │
                                      │             │                            │
@@ -56,8 +56,8 @@ A conversational AI agent exposed as a FastAPI service that helps hiring manager
 
 1. **Facet Extraction** — Rule-based keyword matching extracts skills (java, python, sql…), seniority levels, test type preferences, and language requirements from the conversation. Zero LLM cost, instant.
 2. **Catalog Filtering** — Python-level scoring narrows 377 catalog items to ~30-60 relevant candidates. Uses exact substring + fuzzy matching (rapidfuzz). Always includes Personality & Ability items as fallback pool.
-3. **System Prompt Construction** — Compact system prompt (~800 tokens) + filtered catalog items injected as context. Stays under Groq free-tier 12K TPM limit.
-4. **Single LLM Call** — One Groq API call per request (Llama-3.3-70b-versatile). No multi-step chains.
+3. **System Prompt Construction** — Compact system prompt (~800 tokens) + filtered catalog items injected as context.
+4. **Single LLM Call** — One Google Gemini API call per request (gemini-1.5-flash). No multi-step chains.
 5. **Response Parsing & Validation** — Extracts JSON from LLM output, validates every recommendation name/URL against the real catalog. Three-tier matching: exact URL → exact name → fuzzy name + substring. Two fallback layers if JSON recommendations array is empty.
 
 ---
@@ -75,7 +75,7 @@ This gives us one API call per user message with ~2-3s latency.
 
 ### Why Python pre-filtering instead of sending the full catalog?
 
-The full catalog (377 items) serializes to ~30K tokens — far exceeding Groq's free-tier 12K TPM limit and even straining paid tiers. Pre-filtering to 30-60 relevant items keeps the prompt under 8K tokens while ensuring the LLM has the right items to recommend.
+The full catalog (377 items) serializes to ~30K tokens. Pre-filtering to 30-60 relevant items keeps the prompt tight and focused, saving latency and cost while ensuring the LLM has the right items to recommend.
 
 ### Why rule-based facet extraction instead of LLM extraction?
 
@@ -94,10 +94,9 @@ Plus two fallback layers if the LLM's JSON `recommendations` array is empty but 
 
 A critical bug was discovered: `from catalog import CATALOG` captures a reference to the initial empty list at import time. When `load_catalog()` later rebinds `catalog.CATALOG` to the loaded 377-item list, the reference in `agent.py` still points to `[]`. Using module-level import (`catalog_module.CATALOG`) always resolves to the current value.
 
-### Why Groq + Llama 3.3 70B?
+### Why Google Gemini 1.5 Flash?
 
-- **Groq**: Fastest inference for open-source models (~200 tok/s). Free tier sufficient for development.
-- **Llama 3.3 70B Versatile**: Best open-source model for structured output + reasoning at this scale. Reliably produces JSON blocks and follows system prompt instructions.
+- **Gemini**: Industry-leading speed for its class, with excellent adherence to structured JSON output and system instructions. Built-in `response_mime_type="application/json"` guarantees perfectly parsed arrays every time.
 
 ### Why `rapidfuzz` for fuzzy matching?
 
@@ -131,7 +130,7 @@ shl-recommender/
 ├── data/
 │   └── catalog.json     # SHL product catalog (377 entries)
 ├── requirements.txt     # Python dependencies
-├── .env                 # GROQ_API_KEY (not committed)
+├── .env                 # GEMINI_API_KEY (not committed)
 ├── .gitignore
 └── README.md
 ```
@@ -141,7 +140,7 @@ shl-recommender/
 | Module | Responsibility |
 |--------|---------------|
 | `main.py` | FastAPI app setup, CORS, lifespan (startup loading), error handling |
-| `agent.py` | System prompt, facet extraction, Groq API call, JSON parsing, catalog validation, abbreviation mapping, fallback extraction |
+| `agent.py` | System prompt, facet extraction, Gemini API call, JSON parsing, catalog validation, abbreviation mapping, fallback extraction |
 | `catalog.py` | Load catalog JSON, score-based filtering (skill/level/type/language), compact text serialization for LLM context |
 | `models.py` | `ChatRequest`, `ChatResponse`, `Message`, `Recommendation` Pydantic models |
 
@@ -213,7 +212,7 @@ Auto-generated Swagger UI (provided by FastAPI).
 ### Prerequisites
 
 - Python 3.10+
-- A [Groq API key](https://console.groq.com) (free tier works)
+- A Google Gemini API key
 
 ### Installation
 
@@ -228,8 +227,8 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Set your Groq API key
-echo "GROQ_API_KEY=gsk_your_key_here" > .env
+# Set your Gemini API key
+echo "GEMINI_API_KEY=your_key_here" > .env
 ```
 
 ### Run locally
@@ -265,7 +264,7 @@ source venv/bin/activate
 python test_suite.py
 python test_c1_c10.py
 ```
-*(Note: Running the full test suite consumes ~85,000 tokens. If you are on the Groq free tier, you may hit the 100K daily limit.)*
+*(Note: Running the full test suite consumes ~85,000 tokens. If you are on the Gemini free tier, you may hit the daily RPM limits.)*
 
 ---
 
@@ -328,7 +327,7 @@ curl -X POST http://localhost:8000/chat \
 3. Configure:
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
-4. Add environment variable: `GROQ_API_KEY`
+4. Add environment variable: `GEMINI_API_KEY`
 
 ### Docker (optional)
 
@@ -343,7 +342,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ```bash
 docker build -t shl-recommender .
-docker run -p 8000:8000 -e GROQ_API_KEY=gsk_... shl-recommender
+docker run -p 8000:8000 -e GEMINI_API_KEY=your_key_here shl-recommender
 ```
 
 ---
@@ -354,7 +353,7 @@ docker run -p 8000:8000 -e GROQ_API_KEY=gsk_... shl-recommender
 |---------|---------|
 | `fastapi` | Web framework for the REST API |
 | `uvicorn` | ASGI server to run FastAPI |
-| `groq` | Official Groq Python client for LLM inference |
+| `google-generativeai` | Official Google Python SDK for Gemini LLM inference |
 | `pydantic` | Request/response validation and serialization |
 | `rapidfuzz` | Fast fuzzy string matching for catalog lookups |
 | `python-dotenv` | Load `.env` file for API keys |
