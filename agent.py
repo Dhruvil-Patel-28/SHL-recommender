@@ -260,9 +260,9 @@ def call_agent(messages: List[Message]) -> Tuple[str, List[Recommendation], bool
     last_err = None
     for attempt in range(3):
         try:
-            response = client.chat.completions.create(
+            response = client.chat.completions.create( # type: ignore
                 model="llama-3.3-70b-versatile",
-                messages=request_messages, # type: ignore
+                messages=request_messages,
                 temperature=0.2,
                 max_tokens=2000,
                 response_format={"type": "json_object"}
