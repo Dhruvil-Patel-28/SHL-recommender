@@ -2,11 +2,11 @@ import os
 import json
 import re
 from groq import Groq
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from models import Message, Recommendation
 import catalog as catalog_module
 
-client = None
+client: Optional[Groq] = None
 
 KEYS_MAP = {
     "Ability & Aptitude": "A",
@@ -32,7 +32,7 @@ def get_test_type_code(keys: List[str]) -> str:
     return ",".join(codes)
 
 
-def get_catalog_item_by_name(name: str) -> Dict:
+def get_catalog_item_by_name(name: str) -> Optional[Dict]:
     """Find a catalog item by fuzzy name match. Handles abbreviations."""
     from rapidfuzz import fuzz
 
@@ -207,6 +207,10 @@ def call_agent(messages: List[Message]) -> Tuple[str, List[Recommendation], bool
     Main agent call. Takes full conversation history, returns reply, recommendations,
     end_of_conversation. Single Groq API call per request.
     """
+    if client is None:
+        init_client()
+    assert client is not None
+
     # Step 1: Extract facets using simple rule-based logic (no LLM, instant)
     facets = extract_facets_simple(messages)
 
@@ -258,7 +262,7 @@ def call_agent(messages: List[Message]) -> Tuple[str, List[Recommendation], bool
         try:
             response = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=request_messages,
+                messages=request_messages, # type: ignore
                 temperature=0.2,
                 max_tokens=2000,
                 response_format={"type": "json_object"}
