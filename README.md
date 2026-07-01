@@ -31,7 +31,7 @@ A conversational AI agent exposed as a FastAPI service that helps hiring manager
 ## Architecture
 
 ```
-┌─────────────┐     POST /chat      ┌──────────────────────────────────────────┐
+┌─────────────┐     POST /chat       ┌──────────────────────────────────────────┐
 │   Client     │ ──────────────────► │  FastAPI (main.py)                       │
 │  (curl/UI)   │ ◄────────────────── │                                          │
 └─────────────┘   ChatResponse       │  ┌──────────────────────────────────┐    │
