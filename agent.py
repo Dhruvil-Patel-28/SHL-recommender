@@ -1,7 +1,7 @@
 import os
 import json
 import re
-import google.generativeai as genai
+from groq import Groq
 from typing import List, Dict, Tuple
 from models import Message, Recommendation
 import catalog as catalog_module
@@ -21,10 +21,9 @@ KEYS_MAP = {
 
 
 def init_client():
-    """Initialize the Gemini client. Called once at startup."""
+    """Initialize the Groq client. Called once at startup."""
     global client
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
-    client = genai.GenerativeModel('gemini-flash-latest')
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
 
 def get_test_type_code(keys: List[str]) -> str:
@@ -236,38 +235,35 @@ def call_agent(messages: List[Message]) -> Tuple[str, List[Recommendation], bool
     catalog_block = catalog_module.build_catalog_text(filtered)
     system = SYSTEM_PROMPT.replace("{CATALOG_BLOCK}", catalog_block)
 
-    # Step 4: Build prompt for Gemini call
-    prompt_parts = [f"[SYSTEM]\n{system}\n\n"]
-    for m in messages:
-        role_label = "User" if m.role == "user" else "Assistant"
-        prompt_parts.append(f"{role_label}: {m.content}\n")
-
-    # Step 5: Append a hidden instruction to force JSON output
-    prompt_parts.append(
-        "User: [SYSTEM]: You must return a strict JSON object (no markdown, no backticks). Schema: "
+    # Step 4: Build prompt for Groq call
+    system = f"[SYSTEM]\n{system}\n\n"
+    system += (
+        "You must return a strict JSON object (no markdown, no backticks). Schema: "
         '{"reply":"your text","recommendations":[{"name":"exact catalog name","url":"exact catalog url","test_type":"K"}],"end_of_conversation":false}. '
         "IMPORTANT: If you showed assessments in your reply, you MUST include them in the recommendations array. "
         "Do NOT leave recommendations empty if you recommended assessments. "
         "Use exact names and URLs from the catalog.\n"
     )
-    prompt = "".join(prompt_parts)
 
-    # Step 6: Call Gemini with retry on rate limit
+    request_messages = [{"role": "system", "content": system}]
+    for m in messages:
+        request_messages.append({"role": m.role, "content": m.content})
+
+    # Step 5: Call Groq with retry on rate limit
     import time as _time
 
     raw = None
     last_err = None
     for attempt in range(3):
         try:
-            response = client.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.2,
-                    max_output_tokens=2000,
-                    response_mime_type="application/json",
-                )
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=request_messages,
+                temperature=0.2,
+                max_tokens=2000,
+                response_format={"type": "json_object"}
             )
-            raw = response.text
+            raw = response.choices[0].message.content
             break
         except Exception as e:
             last_err = e
