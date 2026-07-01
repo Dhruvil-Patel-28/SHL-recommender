@@ -280,6 +280,7 @@ def call_agent(messages: List[Message]) -> Tuple[str, List[Recommendation], bool
                 raise
 
     if raw is None:
+        assert last_err is not None
         raise last_err
 
     # Step 7: Parse the JSON output from the LLM response

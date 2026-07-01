@@ -243,6 +243,32 @@ The server starts at `http://localhost:8000`. Swagger docs at `http://localhost:
 
 ---
 
+## Testing
+
+The system includes two rigorous test suites to ensure robust behavior and prevent regressions:
+
+### 1. Full Edge-Case Suite (`test_suite.py`)
+A comprehensive 17-scenario test suite that validates the agent's behavior against:
+- Multi-turn clarification and context retention
+- Refinement actions (add/drop/replace specific assessments)
+- Comparison questions ("what's the difference between X and Y?")
+- Prompt injection and off-topic questions (legal advice, coding tasks)
+- Missing technologies (e.g., Rust) to verify graceful fallback
+- Strict schema adherence (validating SHL URLs, test codes, and empty arrays)
+
+### 2. C1-C10 Trace Validation (`test_c1_c10.py`)
+A specialized suite built by analyzing the 10 provided sample conversations (C1-C10). It validates that the agent correctly identifies when to ask a clarifying question vs. when to recommend immediately, matching the expected behavior patterns in the training traces.
+
+**To run the tests:**
+```bash
+source venv/bin/activate
+python test_suite.py
+python test_c1_c10.py
+```
+*(Note: Running the full test suite consumes ~85,000 tokens. If you are on the Groq free tier, you may hit the 100K daily limit.)*
+
+---
+
 ## Example Usage
 
 ### 1. Simple recommendation
