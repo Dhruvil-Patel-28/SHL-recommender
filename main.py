@@ -38,6 +38,13 @@ app.add_middleware(
 )
 
 
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+def root():
+    """Redirect root to API documentation."""
+    return RedirectResponse(url="/docs")
+
 @app.get("/health")
 def health():
     """Health check endpoint."""
